@@ -44,11 +44,12 @@ Run this chunk without changing it. It combines the abundance table, taxonomy, a
 # Read the EPI2ME abundance table
 abundance <- read_tsv(abundance_file, show_col_types = FALSE)
 
-# Make the read-count table
-counts <- abundance %>%
-  select(-tax, -total) %>%
-  as.matrix()
+# Remove the taxonomy and total-count columns, leaving only
+# the read counts: taxa are rows and samples are columns
+counts <- abundance %>% select(-tax, -total) %>% as.matrix()
 
+# Use each taxon's full taxonomy string as its row name.
+# make.unique() prevents errors if two taxa have the same name.
 rownames(counts) <- make.unique(abundance$tax)
 
 # Split the taxonomy into ranks
@@ -57,8 +58,7 @@ colnames(taxonomy) <- c("Domain", "Kingdom", "Phylum", "Class", "Order", "Family
 rownames(taxonomy) <- rownames(counts)
 
 # Read the sample sheet
-metadata <- read_csv(metadata_file, show_col_types = FALSE) %>%
-  as.data.frame()
+metadata <- read_csv(metadata_file, show_col_types = FALSE) %>% as.data.frame()
 
 rownames(metadata) <- metadata$alias
 # Keep only samples found in the abundance table and put them in the same order
