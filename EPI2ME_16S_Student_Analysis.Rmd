@@ -92,27 +92,30 @@ ps_relative <- transform_sample_counts(ps, function(x) x / sum(x))
 
 # 4. Compositional barplot
 
-Each color represents one of the most abundant bacterial orders. All remaining orders are combined as **Other**, so every bar still adds up to 100%.
+Each color represents one of the most abundant bacterial taxa. All remaining taxa are combined as **Other**, so every bar still adds up to 100%.
 
 ```{r barplot, fig.width=14, fig.height=6}
 
 # Choose how many taxa to list separately
 number_to_show <- 10
 
-# Combine organisms belonging to the same chosen taxonomic rank (in this case Genus)
+# FIRST GLOM:
+# Combine all taxa belonging to the same genus
 ps_tax <- tax_glom(ps_relative, taxrank = "Genus")
 
-# Sort by most abundant chosen taxa (in this example Genus) across all samples
+# Identify the 10 most abundant genera across all samples
 top_tax_ids <- names(
   sort(taxa_sums(ps_tax), decreasing = TRUE)
 )[1:number_to_show]
 
-# Rename every remaining Order as "Other," then combine them
+# Rename each genus outside the top 10 as "Other"
 tax_table(ps_tax)[
   !taxa_names(ps_tax) %in% top_tax_ids,
   "Genus"
 ] <- "Other"
 
+# SECOND GLOM:
+# Combine all the genera now labeled "Other" into one category
 ps_tax <- tax_glom(ps_tax, taxrank = "Genus")
 
 # Make the barplot
