@@ -14,7 +14,7 @@ We will make two figures:
 
 # 1. Choose your files
 
-Put this file, the abundance table, and the sample sheet in the same folder. Change the two filenames below if needed.
+The abundance table and the sample sheet are already in the folder folder. Call their filenames here for later read-in.
 
 ```{r files}
 
