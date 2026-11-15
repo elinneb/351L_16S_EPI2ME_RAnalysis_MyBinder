@@ -33,7 +33,7 @@ library(vegan)
 
 ```
 
-If these packages are not installed, ask your instructor for help before continuing.
+These packages should be pre-installed, ask your instructor for help if you have any issues loading them.
 
 # 3. Import the data
 
@@ -96,27 +96,27 @@ Each color represents one of the most abundant bacterial orders. All remaining o
 
 ```{r barplot, fig.width=14, fig.height=6}
 
-# Choose how many Orders to list separately
+# Choose how many taxa to list separately
 number_to_show <- 10
 
-# Combine organisms belonging to the same Order
-ps_order <- tax_glom(ps_relative, taxrank = "Genus")
+# Combine organisms belonging to the same chosen taxonomic rank (in this case Genus)
+ps_tax <- tax_glom(ps_relative, taxrank = "Genus")
 
-# Find the most abundant Orders across all samples
-top_order_ids <- names(
-  sort(taxa_sums(ps_order), decreasing = TRUE)
+# Sort by most abundant chosen taxa (in this example Genus) across all samples
+top_tax_ids <- names(
+  sort(taxa_sums(ps_tax), decreasing = TRUE)
 )[1:number_to_show]
 
 # Rename every remaining Order as "Other," then combine them
-tax_table(ps_order)[
-  !taxa_names(ps_order) %in% top_order_ids,
+tax_table(ps_tax)[
+  !taxa_names(ps_tax) %in% top_tax_ids,
   "Genus"
 ] <- "Other"
 
-ps_order <- tax_glom(ps_order, taxrank = "Genus")
+ps_tax <- tax_glom(ps_tax, taxrank = "Genus")
 
 # Make the barplot
-plot_bar(ps_order, x = "Sample", fill = "Genus") +
+plot_bar(ps_tax, x = "Sample", fill = "Genus") +
   scale_y_continuous(labels = scales::percent) +
   scale_fill_brewer(palette = "Paired") +
   facet_grid(. ~ Group, scales = "free_x", space = "free_x") +
