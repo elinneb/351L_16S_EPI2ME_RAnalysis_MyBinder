@@ -1,0 +1,191 @@
+---
+title: "Fly Gut 16S Microbiome Analysis"
+author: ""
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Goal
+
+We will make two figures:
+
+1. a barplot showing microbiome composition; and
+2. a beta-diversity plot showing which samples have similar communities.
+
+# 1. Choose your files
+
+Put this file, the abundance table, and the sample sheet in the same folder. Change the two filenames below if needed.
+
+```{r files}
+
+abundance_file <- "abundance_table_species_CLEAN.tsv"
+metadata_file  <- "sample_sheet_biol351_flygut_CLEAN.csv"
+
+```
+
+# 2. Load packages
+
+```{r packages, message=FALSE, warning=FALSE}
+
+library(tidyverse)
+library(phyloseq)
+library(vegan)
+
+```
+
+If these packages are not installed, ask your instructor for help before continuing.
+
+# 3. Import the data
+
+Run this chunk without changing it. It combines the abundance table, taxonomy, and sample information into one `phyloseq` object.
+
+```{r import, message=FALSE, warning=FALSE}
+
+# Read the EPI2ME abundance table
+abundance <- read_tsv(abundance_file, show_col_types = FALSE)
+
+# Make the read-count table
+counts <- abundance %>%
+  select(-tax, -total) %>%
+  as.matrix()
+
+rownames(counts) <- make.unique(abundance$tax)
+
+# Split the taxonomy into ranks
+taxonomy <- stringr::str_split_fixed(abundance$tax, ";", 8)
+colnames(taxonomy) <- c("Domain", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+rownames(taxonomy) <- rownames(counts)
+
+# Read the sample sheet
+metadata <- read_csv(metadata_file, show_col_types = FALSE) %>%
+  as.data.frame()
+
+rownames(metadata) <- metadata$alias
+# Keep only samples found in the abundance table and put them in the same order
+metadata <- metadata[colnames(counts), ]
+
+# Set the order of the four experimental groups in plots and output
+metadata$Group <- factor(
+  metadata$Group,
+  levels = c(
+    "Control_Sedentary",
+    "Control_Exercise",
+    "Obese_Sedentary",
+    "Obese_Exercise"
+  )
+)
+
+# Combine everything into a phyloseq object
+ps <- phyloseq(
+  otu_table(counts, taxa_are_rows = TRUE),
+  tax_table(taxonomy),
+  sample_data(metadata)
+)
+
+# Remove taxa with no reads in the analyzed samples
+ps <- prune_taxa(taxa_sums(ps) > 0, ps)
+
+# Convert read counts to relative abundance
+ps_relative <- transform_sample_counts(ps, function(x) x / sum(x))
+
+```
+
+# 4. Compositional barplot
+
+Each color represents one of the most abundant bacterial orders. All remaining orders are combined as **Other**, so every bar still adds up to 100%.
+
+```{r barplot, fig.width=14, fig.height=6}
+
+# Choose how many Orders to list separately
+number_to_show <- 10
+
+# Combine organisms belonging to the same Order
+ps_order <- tax_glom(ps_relative, taxrank = "Genus")
+
+# Find the most abundant Orders across all samples
+top_order_ids <- names(
+  sort(taxa_sums(ps_order), decreasing = TRUE)
+)[1:number_to_show]
+
+# Rename every remaining Order as "Other," then combine them
+tax_table(ps_order)[
+  !taxa_names(ps_order) %in% top_order_ids,
+  "Genus"
+] <- "Other"
+
+ps_order <- tax_glom(ps_order, taxrank = "Genus")
+
+# Make the barplot
+plot_bar(ps_order, x = "Sample", fill = "Genus") +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette = "Paired") +
+  facet_grid(. ~ Group, scales = "free_x", space = "free_x") +
+  labs(x = "Sample", y = "Relative abundance", fill = "Genus") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 7))
+
+```
+
+# 5. Beta diversity
+
+Samples plotted closer together have more similar microbiome compositions.
+
+```{r beta-diversity, fig.width=8, fig.height=6}
+
+# Calculate Bray-Curtis differences among samples
+bray_pcoa <- ordinate(ps_relative, method = "PCoA", distance = "bray")
+
+# Colorblind-friendly Okabe-Ito colors for the four groups
+group_colors <- c(
+  "Control_Sedentary" = "#56B4E9",
+  "Control_Exercise" = "#009E73",
+  "Obese_Sedentary" = "#F0E442",
+  "Obese_Exercise" = "#E69F00"
+)
+
+# Plot the samples and color them by experimental group
+plot_ordination(ps_relative, bray_pcoa, color = "Group") +
+  stat_ellipse(aes(group = Group), level = 0.95) +
+  geom_point(size = 4) +
+  scale_color_manual(values = group_colors) +
+  theme_classic()
+
+```
+
+# 6. PERMANOVA
+
+PERMANOVA tests whether microbiome composition differs among the four experimental groups.
+
+```{r permanova}
+
+# Use the same Bray-Curtis differences as the PCoA
+bray_distance <- distance(ps_relative, method = "bray")
+sample_info <- data.frame(sample_data(ps_relative))
+
+# Test for a difference among the four experimental groups
+set.seed(123)
+permanova <- adonis2(
+  bray_distance ~ Group,
+  data = sample_info,
+  permutations = 999
+)
+
+permanova
+
+```
+
+In the `Group` row:
+
+- `Pr(>F)` is the p-value. A value below 0.05 provides evidence that at least one of the four groups differs in overall microbiome composition.
+- `R2` is the proportion of variation associated with experimental group.
+
+For this introductory activity, we will treat this as a simple test of group differences. A more complete analysis would also check whether the groups have similar within-group dispersion.
+
+# Questions
+
+1. Which bacterial taxa are most abundant?
+2. How do the compositional profiles differ among the four experimental groups?
+3. Do samples from the same experimental group cluster together on the beta-diversity plot?
+4. What does it mean when two samples are far apart?
+5. What are the PERMANOVA p-value and R2? What do they suggest?
+
