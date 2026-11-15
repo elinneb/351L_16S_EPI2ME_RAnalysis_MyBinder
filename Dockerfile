@@ -19,5 +19,11 @@ RUN R -q -e "library(tidyverse); library(phyloseq); library(vegan)"
 # Copy the lesson and datasets into the Binder workspace
 COPY --chown=rstudio:rstudio . /home/rstudio
 
+# Start RStudio using the Cobalt editor theme
+RUN mkdir -p /home/rstudio/.config/rstudio && \
+    printf '{\n  "editor_theme": "Cobalt"\n}\n' \
+    > /home/rstudio/.config/rstudio/rstudio-prefs.json && \
+    chown -R rstudio:rstudio /home/rstudio/.config
+    
 USER rstudio
 WORKDIR /home/rstudio
